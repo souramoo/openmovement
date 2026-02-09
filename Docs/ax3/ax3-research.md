@@ -42,7 +42,7 @@ In addition to [numerous validation studies involving the AX devices](https://sc
 
    * Crowley, P., Skotte, J., Stamatakis, E., Hamer, M., Aadahl, M., Stevens, M. L., ... & Holtermann, A. (2019). Comparison of physical behavior estimates from three different thigh-worn accelerometers brands: a proof-of-concept for the prospective physical activity, sitting, and sleep Consortium (ProPASS). International Journal of Behavioral Nutrition and Physical Activity, 16(1), 1-7.
 
-Specific validation for the AX6, includes: [comparison to the AX3](https://www.sciencedirect.com/science/article/abs/pii/S2352648321000428)<!-- [alt](https://nrl.northumbria.ac.uk/id/eprint/47513/1/Powell_ax3_ax6_validation_paper_RG.pdf) -->, [PA cut-points](https://www.medrxiv.org/content/10.1101/2023.08.19.23294309v1.full.pdf), [sedentary behaviour](https://www.mdpi.com/1424-8220/23/10/4605).
+See also: [Differences between the AX3 and AX6](https://github.com/openmovementproject/openmovement/blob/master/Docs/ax3/ax3-auxiliary.md#differences-between-the-ax3-and-ax6).  Specific validation for the AX6, includes: [comparison to the AX3](https://www.sciencedirect.com/science/article/abs/pii/S2352648321000428)<!-- [alt](https://nrl.northumbria.ac.uk/id/eprint/47513/1/Powell_ax3_ax6_validation_paper_RG.pdf) -->, [PA cut-points](https://www.medrxiv.org/content/10.1101/2023.08.19.23294309v1.full.pdf), [sedentary behaviour](https://www.mdpi.com/1424-8220/23/10/4605).
 
 
 ### Raw data
