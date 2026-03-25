@@ -1,0 +1,1 @@
+/Users/smooker1/Documents/openmovement/Software/OM/omgui-android/app/src/main/cpp/CMakeLists.txt

@@ -1,0 +1,17 @@
+# ninja log v5
+3	104	1774433864735177380	CMakeFiles/omgui-native.dir/Users/smooker1/Documents/openmovement/Software/AX3/omconvert/linearregression.c.o	49a7af607814a963
+5	125	1774433864748241086	CMakeFiles/omgui-native.dir/Users/smooker1/Documents/openmovement/Software/AX3/omconvert/wav.c.o	c5890566fc890327
+1	130	1774433864750206409	CMakeFiles/omgui-native.dir/Users/smooker1/Documents/openmovement/Software/AX3/omconvert/main.c.o	bc51470827b4728a
+1	135	1774433864765001476	CMakeFiles/omgui-native.dir/Users/smooker1/Documents/openmovement/Software/AX3/omconvert/agfilter.c.o	b9d226b47fbe8097
+1	136	1774433864747881455	CMakeFiles/omgui-native.dir/Users/smooker1/Documents/openmovement/Software/AX3/omconvert/butter.c.o	34a0accd335bf822
+1	136	1774433864759848853	CMakeFiles/omgui-native.dir/Users/smooker1/Documents/openmovement/Software/AX3/omconvert/calc-csv.c.o	92c74f35e738c289
+2	137	1774433864758527165	CMakeFiles/omgui-native.dir/Users/smooker1/Documents/openmovement/Software/AX3/omconvert/calc-paee.c.o	8c8a3cbc37b56ccb
+2	137	1774433864760208442	CMakeFiles/omgui-native.dir/Users/smooker1/Documents/openmovement/Software/AX3/omconvert/calc-sleep.c.o	927db07523a02794
+2	138	1774433864760680116	CMakeFiles/omgui-native.dir/Users/smooker1/Documents/openmovement/Software/AX3/omconvert/calc-step.c.o	b6cacdb5b4d6ad16
+4	138	1774433864754065428	CMakeFiles/omgui-native.dir/Users/smooker1/Documents/openmovement/Software/AX3/omconvert/omcalibrate.c.o	94b55a0773e2b353
+2	139	1774433864764608094	CMakeFiles/omgui-native.dir/Users/smooker1/Documents/openmovement/Software/AX3/omconvert/calc-svm.c.o	982e7720b78759c6
+3	139	1774433864765683070	CMakeFiles/omgui-native.dir/Users/smooker1/Documents/openmovement/Software/AX3/omconvert/calc-wtv.c.o	1f5a47b94542d79a
+4	149	1774433864785960390	CMakeFiles/omgui-native.dir/Users/smooker1/Documents/openmovement/Software/AX3/omconvert/omconvert.c.o	9f8ed915b0a569a2
+5	167	1774433864803624960	CMakeFiles/omgui-native.dir/Users/smooker1/Documents/openmovement/Software/AX3/omconvert/omdata.c.o	f95eb0f5c9aa284
+0	684	1774433865305257251	CMakeFiles/omgui-native.dir/native_bridge.cpp.o	eea0beea7ffbfe28
+686	764	1774433865402706289	/Users/smooker1/Documents/openmovement/Software/OM/omgui-android/app/build/intermediates/cxx/Debug/3b43374b/obj/x86_64/libomgui-native.so	944441ac532a681a

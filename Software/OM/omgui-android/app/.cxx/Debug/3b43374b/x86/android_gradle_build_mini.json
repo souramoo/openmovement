@@ -1,0 +1,27 @@
+{
+  "buildFiles": [
+    "/Users/smooker1/Documents/openmovement/Software/OM/omgui-android/app/src/main/cpp/CMakeLists.txt"
+  ],
+  "cleanCommandsComponents": [
+    [
+      "/Users/smooker1/Library/Android/sdk/cmake/3.22.1/bin/ninja",
+      "-C",
+      "/Users/smooker1/Documents/openmovement/Software/OM/omgui-android/app/.cxx/Debug/3b43374b/x86",
+      "clean"
+    ]
+  ],
+  "buildTargetsCommandComponents": [
+    "/Users/smooker1/Library/Android/sdk/cmake/3.22.1/bin/ninja",
+    "-C",
+    "/Users/smooker1/Documents/openmovement/Software/OM/omgui-android/app/.cxx/Debug/3b43374b/x86",
+    "{LIST_OF_TARGETS_TO_BUILD}"
+  ],
+  "libraries": {
+    "omgui-native::@6890427a1f51a3e7e1df": {
+      "artifactName": "omgui-native",
+      "abi": "x86",
+      "output": "/Users/smooker1/Documents/openmovement/Software/OM/omgui-android/app/build/intermediates/cxx/Debug/3b43374b/obj/x86/libomgui-native.so",
+      "runtimeFiles": []
+    }
+  }
+}

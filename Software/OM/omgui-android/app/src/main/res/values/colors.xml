@@ -1,0 +1,7 @@
+<resources>
+    <color name="om_surface">#F4F0E7</color>
+    <color name="om_surface_variant">#E7DFD1</color>
+    <color name="om_primary">#245B4A</color>
+    <color name="om_on_primary">#FFFFFF</color>
+</resources>
+

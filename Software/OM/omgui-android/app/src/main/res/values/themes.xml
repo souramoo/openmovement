@@ -1,0 +1,13 @@
+<resources>
+    <style name="Theme.OmGuiAndroid" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightNavigationBar">true</item>
+        <item name="android:colorBackground">@color/om_surface</item>
+        <item name="colorPrimary">@color/om_primary</item>
+        <item name="colorOnPrimary">@color/om_on_primary</item>
+        <item name="colorSurface">@color/om_surface</item>
+        <item name="colorSurfaceVariant">@color/om_surface_variant</item>
+    </style>
+</resources>
