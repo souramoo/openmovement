@@ -309,14 +309,18 @@ class Ax3Repository(context: Context) {
             val connection = usbManager.openDevice(device) ?: throw IOException("Unable to open USB device")
             port.open(connection)
             runCatching {
-                port.setParameters(115200, UsbSerialPort.DATABITS_8, UsbSerialPort.STOPBITS_1, UsbSerialPort.PARITY_NONE)
+                // AX3 firmware accepts host line-coding changes, but OMAPI does not depend on a real UART baud.
+                // Use the historical CDC default from Microchip's stack rather than an arbitrary high rate.
+                port.setParameters(19200, UsbSerialPort.DATABITS_8, UsbSerialPort.STOPBITS_1, UsbSerialPort.PARITY_NONE)
             }.recoverCatching {
                 port.setParameters(9600, UsbSerialPort.DATABITS_8, UsbSerialPort.STOPBITS_1, UsbSerialPort.PARITY_NONE)
             }.getOrThrow()
             runCatching { port.setDTR(false) }
             runCatching { port.setRTS(false) }
             try {
-                block(Ax3Protocol(port))
+                val protocol = Ax3Protocol(port)
+                protocol.primeConnection()
+                block(protocol)
             } finally {
                 runCatching { port.close() }
             }
@@ -504,7 +508,7 @@ class Ax3Repository(context: Context) {
         }
 
         fun syncTime() {
-            repeat(4) {
+            repeat(12) {
                 val second = System.currentTimeMillis() / 1000L
                 while ((System.currentTimeMillis() / 1000L) == second) {
                     Thread.sleep(5)
@@ -514,10 +518,25 @@ class Ax3Repository(context: Context) {
                 Thread.sleep(1200)
                 val observed = time()
                 if (observed != null && observed.isCloseTo(target, 5)) {
-                    return
+                    // Match the desktop flow by also checking that the device clock is advancing after the set.
+                    val checkStart = SystemClock.elapsedRealtime()
+                    while (SystemClock.elapsedRealtime() - checkStart < 4000) {
+                        val current = time()
+                        if (current != null && current.isAfter(observed) && current.isCloseTo(LocalDateTime.now(), 5)) {
+                            return
+                        }
+                    }
                 }
             }
             throw IOException("Time synchronization failed")
+        }
+
+        fun primeConnection() {
+            // Linux OMAPI sends an initial CRLF and flushes early CDC output before issuing real commands.
+            runCatching {
+                port.write("\r\n".toByteArray(Charsets.US_ASCII), 250)
+            }
+            flushInput(250)
         }
 
         private fun parseNullableDate(line: String): LocalDateTime? {
@@ -560,10 +579,10 @@ class Ax3Repository(context: Context) {
             throw IOException("Timed out waiting for $expectedPrefix")
         }
 
-        private fun flushInput() {
+        private fun flushInput(timeoutMs: Int = 25) {
             val buffer = ByteArray(128)
             while (true) {
-                val read = runCatching { port.read(buffer, 25) }.getOrElse { 0 }
+                val read = runCatching { port.read(buffer, timeoutMs) }.getOrElse { 0 }
                 if (read <= 0) {
                     return
                 }
