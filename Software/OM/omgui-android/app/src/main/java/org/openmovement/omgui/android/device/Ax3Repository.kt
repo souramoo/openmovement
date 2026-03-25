@@ -313,6 +313,8 @@ class Ax3Repository(context: Context) {
             }.recoverCatching {
                 port.setParameters(9600, UsbSerialPort.DATABITS_8, UsbSerialPort.STOPBITS_1, UsbSerialPort.PARITY_NONE)
             }.getOrThrow()
+            runCatching { port.setDTR(false) }
+            runCatching { port.setRTS(false) }
             try {
                 block(Ax3Protocol(port))
             } finally {
