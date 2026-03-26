@@ -4,6 +4,8 @@ import android.content.Context
 import android.hardware.usb.UsbDevice
 import android.hardware.usb.UsbManager
 import android.os.SystemClock
+import com.hoho.android.usbserial.driver.CdcAcmSerialDriver
+import com.hoho.android.usbserial.driver.ProbeTable
 import com.hoho.android.usbserial.driver.UsbSerialPort
 import com.hoho.android.usbserial.driver.UsbSerialProber
 import kotlinx.coroutines.Dispatchers
@@ -34,6 +36,12 @@ import kotlin.math.abs
 class Ax3Repository(context: Context) {
     private val appContext = context.applicationContext
     private val usbManager = appContext.getSystemService(Context.USB_SERVICE) as UsbManager
+    private val serialProber = UsbSerialProber(
+        UsbSerialProber.getDefaultProbeTable().apply {
+            // Match the Windows OMAPI approach: identify the AX3 by VID/PID and bind it to CDC explicitly.
+            addProduct(AX3_VENDOR_ID, AX3_PRODUCT_ID, CdcAcmSerialDriver::class.java)
+        },
+    )
     private val mutableDevices = MutableStateFlow<List<Ax3DeviceSnapshot>>(emptyList())
     private val mutableFiles = MutableStateFlow<List<AppFile>>(emptyList())
     private val mutableStatus = MutableStateFlow("Ready")
@@ -303,7 +311,7 @@ class Ax3Repository(context: Context) {
 
     private suspend fun <T> withProtocol(device: UsbDevice, block: (Ax3Protocol) -> T): T =
         withContext(Dispatchers.IO) {
-            val driver = UsbSerialProber.getDefaultProber().probeDevice(device)
+            val driver = serialProber.probeDevice(device)
                 ?: throw IOException("No serial driver found for AX3 control interface")
             val port = driver.ports.firstOrNull() ?: throw IOException("No serial ports exposed by AX3")
             val connection = usbManager.openDevice(device) ?: throw IOException("Unable to open USB device")
