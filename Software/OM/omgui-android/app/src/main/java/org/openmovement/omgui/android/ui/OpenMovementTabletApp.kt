@@ -1,17 +1,25 @@
 package org.openmovement.omgui.android.ui
 
-import androidx.compose.foundation.horizontalScroll
+import android.util.Log
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -21,13 +29,21 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.*
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -40,9 +56,15 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import org.openmovement.omgui.android.R
 import org.openmovement.omgui.android.data.AppFile
 import org.openmovement.omgui.android.data.AppFileKind
 import org.openmovement.omgui.android.data.Ax3DeviceSnapshot
@@ -51,34 +73,112 @@ import org.openmovement.omgui.android.data.ExportJob
 import org.openmovement.omgui.android.data.ExportRequest
 import org.openmovement.omgui.android.data.ExportType
 import org.openmovement.omgui.android.util.MetadataCodec
+import kotlinx.coroutines.flow.collectLatest
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
+
+private enum class AppScreen {
+    DEVICES,
+    FILES,
+    DIAGNOSE,
+    SETTINGS,
+}
+
+private const val UI_TAG = "OpenMovementTabletUI"
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun OpenMovementTabletApp(
     viewModel: AppViewModel,
     requestUsbPermission: (String) -> Unit,
+    sendSupportEmail: (String, String) -> Unit,
 ) {
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     val devices by viewModel.devices.collectAsStateWithLifecycle()
     val files by viewModel.files.collectAsStateWithLifecycle()
-    val jobs by viewModel.jobs.collectAsStateWithLifecycle()
     val status by viewModel.status.collectAsStateWithLifecycle()
+    val isBusy by viewModel.isBusy.collectAsStateWithLifecycle()
+    val busyMessage by viewModel.busyMessage.collectAsStateWithLifecycle()
+    val workflowStep by viewModel.workflowStep.collectAsStateWithLifecycle()
+    val supportEmailBody by viewModel.supportEmailBody.collectAsStateWithLifecycle()
+    val snackbarHostState = remember { SnackbarHostState() }
 
-    var selectedTab by rememberSaveable { mutableStateOf(0) }
-    var configDevice by remember { mutableStateOf<Ax3DeviceSnapshot?>(null) }
-    var exportTarget by remember { mutableStateOf<AppFile?>(null) }
-    var exportType by remember { mutableStateOf<ExportType?>(null) }
+    var currentScreen by rememberSaveable { mutableStateOf(AppScreen.DEVICES) }
+    var menuExpanded by remember { mutableStateOf(false) }
 
-    MaterialTheme {
+    LaunchedEffect(viewModel) {
+        viewModel.notices.collectLatest { message ->
+            snackbarHostState.showSnackbar(message)
+        }
+    }
+
+    AX3AppTheme {
         Scaffold(
+            snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
             topBar = {
                 TopAppBar(
-                    title = { Text("Open Movement Tablet") },
+                    title = {
+                        Text(
+                            when (currentScreen) {
+                                AppScreen.DEVICES -> run {
+                                    val activeDevice = devices.firstOrNull { it.hasPermission } ?: devices.firstOrNull()
+                                    when {
+                                        workflowStep == WorkflowStep.ERROR -> "Sensor Setup"
+                                        activeDevice == null || !activeDevice.hasPermission -> "Step 1 / 4: Connect"
+                                        workflowStep == WorkflowStep.CONNECT -> "Step 2 / 4: Download"
+                                        workflowStep == WorkflowStep.DOWNLOAD -> "Step 2 / 4: Download"
+                                        workflowStep == WorkflowStep.RESET -> "Step 3 / 4: Reset"
+                                        workflowStep == WorkflowStep.DONE -> "Step 4 / 4: Done"
+                                        else -> "Sensor Setup"
+                                    }
+                                }
+                                AppScreen.FILES -> "Files"
+                                AppScreen.DIAGNOSE -> "Diagnose"
+                                AppScreen.SETTINGS -> "Settings"
+                            },
+                        )
+                    },
                     actions = {
                         TextButton(onClick = viewModel::refreshAll) {
                             Text("Refresh")
+                        }
+                        Box {
+                            IconButton(onClick = { menuExpanded = true }) {
+                                Text("...")
+                            }
+                            DropdownMenu(
+                                expanded = menuExpanded,
+                                onDismissRequest = { menuExpanded = false },
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text("Devices") },
+                                    onClick = {
+                                        currentScreen = AppScreen.DEVICES
+                                        menuExpanded = false
+                                    },
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Files") },
+                                    onClick = {
+                                        currentScreen = AppScreen.FILES
+                                        menuExpanded = false
+                                    },
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Diagnose") },
+                                    onClick = {
+                                        currentScreen = AppScreen.DIAGNOSE
+                                        menuExpanded = false
+                                    },
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Settings") },
+                                    onClick = {
+                                        currentScreen = AppScreen.SETTINGS
+                                        menuExpanded = false
+                                    },
+                                )
+                            }
                         }
                     },
                 )
@@ -100,41 +200,62 @@ fun OpenMovementTabletApp(
                     .fillMaxSize()
                     .padding(paddingValues),
             ) {
-                TabRow(selectedTabIndex = selectedTab) {
-                    listOf("Devices", "Files", "Jobs", "Settings").forEachIndexed { index, title ->
-                        Tab(
-                            selected = selectedTab == index,
-                            onClick = { selectedTab = index },
-                            text = { Text(title) },
-                        )
+                if (isBusy) {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(PaddingValues(horizontal = 12.dp, vertical = 8.dp)),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            Text(
+                                if (busyMessage.isBlank()) "Working..." else busyMessage,
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                            Text(
+                                "Please keep AX3 connected. Do not unplug until completion message appears.",
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        }
                     }
                 }
-                when (selectedTab) {
-                    0 -> DevicesScreen(
+                when (currentScreen) {
+                    AppScreen.DEVICES -> DevicesScreen(
                         devices = devices,
+                        status = status,
+                        workflowStep = workflowStep,
+                        supportEmailBody = supportEmailBody,
                         onGrantUsb = requestUsbPermission,
-                        onIdentify = viewModel::identify,
-                        onSyncTime = viewModel::syncTime,
-                        onConfigure = { configDevice = it },
-                        onDownload = viewModel::download,
-                        onClear = { usbKey, wipe -> viewModel.clear(usbKey, wipe) },
+                        onDownloadAndExportCsv = viewModel::downloadAndExportCsv,
+                        onReset = viewModel::resetDevice,
+                        onDismissError = viewModel::dismissWorkflowError,
+                        onSendSupportEmail = sendSupportEmail,
+                        onFinish = viewModel::refreshAll,
                     )
 
-                    1 -> FilesScreen(
+                    AppScreen.FILES -> FilesScreen(
                         files = files,
                         onRefresh = viewModel::refreshFiles,
-                        onExport = { file, type ->
-                            exportTarget = file
-                            exportType = type
-                        },
                     )
 
-                    2 -> JobsScreen(
-                        jobs = jobs,
-                        onClearCompleted = viewModel::clearCompletedJobs,
+                    AppScreen.DIAGNOSE -> DiagnoseScreen(
+                        devices = devices,
+                        onGrantUsb = requestUsbPermission,
+                        onDiagnose = viewModel::diagnose,
+                        onDownload = viewModel::download,
+                        onClear = { usbKey -> viewModel.clear(usbKey, wipe = false) },
+                        onReset = viewModel::resetDevice,
+                        onStopRecording = viewModel::stopRecording,
                     )
 
-                    else -> SettingsScreen(
+                    AppScreen.SETTINGS -> SettingsScreen(
                         filenameTemplate = settings.filenameTemplate,
                         workingRoot = settings.workingRoot.absolutePath,
                         downloadsRoot = settings.downloadsRoot.absolutePath,
@@ -145,118 +266,589 @@ fun OpenMovementTabletApp(
             }
         }
     }
-
-    configDevice?.let { device ->
-        RecordingConfigDialog(
-            device = device,
-            onDismiss = { configDevice = null },
-            onSave = { config ->
-                viewModel.configure(device.usbKey, config)
-                configDevice = null
-            },
-        )
-    }
-
-    if (exportTarget != null && exportType != null) {
-        ExportDialog(
-            file = exportTarget!!,
-            type = exportType!!,
-            onDismiss = {
-                exportTarget = null
-                exportType = null
-            },
-            onRun = { request ->
-                viewModel.export(request)
-                exportTarget = null
-                exportType = null
-            },
-        )
-    }
 }
 
 @Composable
 private fun DevicesScreen(
     devices: List<Ax3DeviceSnapshot>,
+    status: String,
+    workflowStep: WorkflowStep,
+    supportEmailBody: String?,
     onGrantUsb: (String) -> Unit,
-    onIdentify: (String) -> Unit,
-    onSyncTime: (String) -> Unit,
-    onConfigure: (Ax3DeviceSnapshot) -> Unit,
-    onDownload: (String) -> Unit,
-    onClear: (String, Boolean) -> Unit,
+    onDownloadAndExportCsv: (String) -> Unit,
+    onReset: (String, Long) -> Unit,
+    onDismissError: () -> Unit,
+    onSendSupportEmail: (String, String) -> Unit,
+    onFinish: () -> Unit,
 ) {
-    if (devices.isEmpty()) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text("Connect an AX3 over USB OTG to begin.")
-        }
-        return
+    val activeDevice = devices.firstOrNull { it.hasPermission } ?: devices.firstOrNull()
+    val configuration = LocalConfiguration.current
+    val isLandscape = configuration.screenWidthDp > configuration.screenHeightDp
+
+    val effectiveStep = when {
+        workflowStep == WorkflowStep.ERROR -> WorkflowStep.ERROR
+        activeDevice == null || !activeDevice.hasPermission -> WorkflowStep.CONNECT
+        workflowStep == WorkflowStep.CONNECT -> WorkflowStep.DOWNLOAD
+        else -> workflowStep
     }
 
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
-    ) {
-        items(devices, key = { it.usbKey }) { device ->
-            Card(
-                colors = CardDefaults.cardColors(
-                    containerColor = if (device.hasPermission) MaterialTheme.colorScheme.surfaceContainerHigh
-                    else MaterialTheme.colorScheme.surfaceContainer,
-                ),
-            ) {
+    Box(modifier = Modifier.fillMaxSize()) {
+        when (effectiveStep) {
+            WorkflowStep.CONNECT -> {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = if (isLandscape) 20.dp else 24.dp, vertical = 20.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(if (isLandscape) 6.dp else 8.dp),
+                    ) {
+                        Text(
+                            "Step 1 / 4: Connect your sensor",
+                            style = MaterialTheme.typography.headlineMedium,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                        Text(
+                            "Use the cable to plug your sensor into the tablet.",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .widthIn(max = if (isLandscape) 980.dp else 900.dp)
+                                .weight(1f),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(if (isLandscape) 10.dp else 12.dp),
+                                verticalArrangement = Arrangement.spacedBy(if (isLandscape) 8.dp else 10.dp),
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .weight(if (isLandscape) 0.72f else 1f),
+                                    horizontalArrangement = Arrangement.spacedBy(if (isLandscape) 10.dp else 8.dp),
+                                ) {
+                                    Card(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .fillMaxHeight(),
+                                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+                                    ) {
+                                        Column(
+                                            modifier = Modifier
+                                                .fillMaxSize()
+                                                .padding(8.dp),
+                                            horizontalAlignment = Alignment.CenterHorizontally,
+                                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                                        ) {
+                                            Card(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .weight(1f)
+                                                    .heightIn(min = 120.dp, max = if (isLandscape) 150.dp else 180.dp),
+                                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                                            ) {
+                                                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                                    Image(
+                                                        painter = painterResource(id = R.drawable.ax3),
+                                                        contentDescription = "AX3 Sensor",
+                                                        modifier = Modifier
+                                                            .fillMaxSize()
+                                                            .padding(6.dp),
+                                                        contentScale = ContentScale.Fit,
+                                                    )
+                                                }
+                                            }
+                                            Text(
+                                                "AX3 Sensor",
+                                                style = if (isLandscape) MaterialTheme.typography.labelMedium else MaterialTheme.typography.bodyMedium,
+                                                fontWeight = FontWeight.Bold,
+                                            )
+                                        }
+                                    }
+                                    Card(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .fillMaxHeight(),
+                                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+                                    ) {
+                                        Column(
+                                            modifier = Modifier
+                                                .fillMaxSize()
+                                                .padding(8.dp),
+                                            horizontalAlignment = Alignment.CenterHorizontally,
+                                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                                        ) {
+                                            Card(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .weight(1f)
+                                                    .heightIn(min = 120.dp, max = if (isLandscape) 150.dp else 180.dp),
+                                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                                            ) {
+                                                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                                    Image(
+                                                        painter = painterResource(id = R.drawable.cable),
+                                                        contentDescription = "USB Cable",
+                                                        modifier = Modifier
+                                                            .fillMaxSize()
+                                                            .padding(6.dp),
+                                                        contentScale = ContentScale.Fit,
+                                                    )
+                                                }
+                                            }
+                                            Text(
+                                                "USB Cable",
+                                                style = if (isLandscape) MaterialTheme.typography.labelMedium else MaterialTheme.typography.bodyMedium,
+                                                fontWeight = FontWeight.Bold,
+                                            )
+                                        }
+                                    }
+                                }
+
+                                Card(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+                                    shape = androidx.compose.foundation.shape.RoundedCornerShape(50),
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 16.dp, vertical = if (isLandscape) 8.dp else 10.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(if (isLandscape) 7.dp else 8.dp)
+                                                .background(
+                                                    color = MaterialTheme.colorScheme.secondary,
+                                                    shape = androidx.compose.foundation.shape.CircleShape,
+                                                ),
+                                        )
+                                        Text(
+                                            if (activeDevice == null) "Waiting for connection..." else "Sensor connected. USB permission required.",
+                                            style = if (isLandscape) MaterialTheme.typography.bodySmall else MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.secondary,
+                                        )
+                                    }
+                                }
+
+                                if (activeDevice != null && !activeDevice.hasPermission) {
+                                    Button(
+                                        onClick = { onGrantUsb(activeDevice.usbKey) },
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(if (isLandscape) 42.dp else 44.dp),
+                                    ) {
+                                        Text("Allow USB Access", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold)
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    StepIndicator(current = 1, total = 4)
+                }
+            }
+
+            WorkflowStep.DOWNLOAD -> {
+                val device = activeDevice ?: return@Box
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                        .padding(horizontal = 24.dp, vertical = 20.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(18.dp),
                 ) {
-                    Text(device.displayName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                    Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                        DeviceField("Device", device.deviceId?.let { "%05d".format(it) } ?: "Unknown")
-                        DeviceField("Session", device.sessionId?.let { "%010d".format(it) } ?: "-")
-                        DeviceField("Battery", device.batteryLevel?.let { "$it%" } ?: "-")
-                        DeviceField("Data", device.dataBytes?.let { "${it / 1024} KB" } ?: "-")
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .widthIn(max = 860.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(20.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(16.dp),
+                        ) {
+                            Card(
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest),
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(170.dp)
+                                        .padding(14.dp),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Outlined.Download,
+                                        contentDescription = "Download",
+                                        modifier = Modifier.size(80.dp),
+                                        tint = MaterialTheme.colorScheme.primary,
+                                    )
+                                }
+                            }
+
+                            Text("Download", style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary)
+                            Text(
+                                "Your data is ready to be saved to this tablet.",
+                                style = MaterialTheme.typography.headlineSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Text("Step 2 / 4", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+                            Button(
+                                onClick = { onDownloadAndExportCsv(device.usbKey) },
+                                enabled = !device.isDownloading && (device.hasData || device.dataBytes == null),
+                                modifier = Modifier
+                                    .widthIn(max = 420.dp)
+                                    .fillMaxWidth()
+                                    .height(72.dp),
+                            ) {
+                                Text("DOWNLOAD DATA", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                            }
+
+                            Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+                                DeviceField("Battery", device.batteryLevel?.let { "$it%" } ?: "Not available")
+                                DeviceField("Data", device.dataBytes?.let { "${it / 1024} KB" } ?: "Not available")
+                            }
+                        }
                     }
-                    Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                        DeviceField("Firmware", device.firmwareVersion?.toString() ?: "-")
-                        DeviceField("Memory", device.memoryHealth?.toString() ?: "-")
-                        DeviceField("Rate", device.sampleRateHz?.let { "$it Hz" } ?: "-")
-                        DeviceField("Range", device.accelRangeG?.let { "±${it}g" } ?: "-")
+
+                    StepIndicator(current = 2, total = 4)
+                }
+            }
+
+            WorkflowStep.RESET -> {
+                val device = activeDevice ?: return@Box
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp, vertical = 20.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(18.dp),
+                ) {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .widthIn(max = 860.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(20.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(16.dp),
+                        ) {
+                            Card(
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest),
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(170.dp)
+                                        .padding(14.dp),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Outlined.Refresh,
+                                        contentDescription = "Reset",
+                                        modifier = Modifier.size(80.dp),
+                                        tint = MaterialTheme.colorScheme.primary,
+                                    )
+                                }
+                            }
+
+                            Text("Reset", style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary)
+                            Text(
+                                "This will clear the sensor for the next use. Please ensure you have downloaded your data first.",
+                                style = MaterialTheme.typography.headlineSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Text("Step 3 / 4", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+                            Button(
+                                onClick = {
+                                    val resetSessionId = when {
+                                        (device.sessionId ?: 0L) > 0L -> device.sessionId!!
+                                        (device.deviceId ?: 0L) > 0L -> device.deviceId!!
+                                        else -> 1L
+                                    }
+                                    onReset(device.usbKey, resetSessionId)
+                                },
+                                modifier = Modifier
+                                    .widthIn(max = 420.dp)
+                                    .fillMaxWidth()
+                                    .height(72.dp),
+                            ) {
+                                Text("RESET SENSOR", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                            }
+
+                            Card(
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .border(
+                                        width = 2.dp,
+                                        color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.3f),
+                                        shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
+                                    ),
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(14.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Outlined.Info,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.secondary,
+                                    )
+                                    Text(
+                                        "Resetting makes the sensor ready for a fresh recording. It ensures your next session starts with a clean slate.",
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            }
+                        }
                     }
-                    device.startTime?.let {
-                        DeviceField("Start", it.toString().replace('T', ' '))
-                    }
-                    device.stopTime?.let {
-                        DeviceField("Stop", it.toString().replace('T', ' '))
-                    }
-                    if (!device.warning.isNullOrBlank()) {
-                        Text(device.warning, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
-                    }
-                    if (device.isDownloading) {
-                        Text("Downloading ${device.downloadProgress}%", style = MaterialTheme.typography.bodyMedium)
-                    }
+
+                    StepIndicator(current = 3, total = 4)
+                }
+            }
+
+            WorkflowStep.DONE -> {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 12.dp, vertical = 20.dp),
+                    verticalArrangement = Arrangement.SpaceBetween,
+                ) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            .weight(1f),
+                        horizontalArrangement = Arrangement.spacedBy(24.dp),
+                        verticalAlignment = Alignment.Top,
                     ) {
-                        if (!device.hasPermission) {
-                            Button(onClick = { onGrantUsb(device.usbKey) }) {
-                                Text("Grant USB")
+                        // LEFT COLUMN: Badge + Hero Text
+                        Column(
+                            modifier = Modifier
+                                .weight(0.4f)
+                                .fillMaxHeight(),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(24.dp),
+                        ) {
+                            // Mission Accomplished Badge
+                            Card(
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp, vertical = 10.dp),
+                                    horizontalArrangement = Arrangement.Center,
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Outlined.CheckCircle,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(20.dp),
+                                        tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        "MISSION ACCOMPLISHED",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                    )
+                                }
                             }
-                        } else {
-                            Button(onClick = { onIdentify(device.usbKey) }) { Text("Identify") }
-                            Button(onClick = { onSyncTime(device.usbKey) }) { Text("Sync Time") }
-                            Button(onClick = { onConfigure(device) }) { Text("Configure") }
-                            Button(onClick = { onDownload(device.usbKey) }, enabled = device.hasData && !device.isDownloading) { Text("Download") }
-                            Button(onClick = { onClear(device.usbKey, false) }, enabled = !device.isDownloading) { Text("Clear") }
-                            Button(onClick = { onClear(device.usbKey, true) }, enabled = !device.isDownloading) { Text("Wipe") }
+
+                            // Hero Text: "Well done!" + "You are all finished for today."
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text(
+                                    "Well done!",
+                                    style = MaterialTheme.typography.displayMedium,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = MaterialTheme.colorScheme.primary,
+                                )
+                                Text(
+                                    "You are all finished for today.",
+                                    style = MaterialTheme.typography.displaySmall,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = MaterialTheme.colorScheme.secondary,
+                                )
+                            }
+                        }
+
+                        // RIGHT COLUMN: Content Cards
+                        Column(
+                            modifier = Modifier
+                                .weight(0.6f)
+                                .fillMaxHeight(),
+                            verticalArrangement = Arrangement.spacedBy(16.dp),
+                        ) {
+                            // Main Content Card: Unplug Instructions
+                            Card(
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest),
+                                modifier = Modifier.fillMaxWidth(),
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(24.dp),
+                                    verticalArrangement = Arrangement.spacedBy(20.dp),
+                                ) {
+                                    // Unplug instruction
+                                    Text(
+                                        "You can now safely unplug the sensor.",
+                                        style = MaterialTheme.typography.headlineSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                    )
+
+                                    // Blinking Green Indicator
+                                    Card(
+                                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+                                        modifier = Modifier.fillMaxWidth(),
+                                    ) {
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(16.dp),
+                                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                        ) {
+                                            // Blinking green dot
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(20.dp)
+                                                    .background(
+                                                        color = Color(0xFF22C55E),
+                                                        shape = androidx.compose.foundation.shape.CircleShape,
+                                                    )
+                                                    .border(
+                                                        width = 2.dp,
+                                                        color = Color.White,
+                                                        shape = androidx.compose.foundation.shape.CircleShape,
+                                                    ),
+                                            )
+                                            Text(
+                                                "It should be blinking green to show it is ready to rest.",
+                                                style = MaterialTheme.typography.bodyLarge,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            )
+                                        }
+                                    }
+
+                                    // What Happens Next? Tip Card with Left Border
+                                    Card(
+                                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .border(
+                                                width = 4.dp,
+                                                color = MaterialTheme.colorScheme.secondary,
+                                                shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
+                                            ),
+                                    ) {
+                                        Column(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(16.dp),
+                                            verticalArrangement = Arrangement.spacedBy(12.dp),
+                                        ) {
+                                            Row(
+                                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                                verticalAlignment = Alignment.CenterVertically,
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Outlined.Info,
+                                                    contentDescription = null,
+                                                    modifier = Modifier.size(24.dp),
+                                                    tint = MaterialTheme.colorScheme.primary,
+                                                )
+                                                Text(
+                                                    "What happens next?",
+                                                    style = MaterialTheme.typography.titleMedium,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = MaterialTheme.colorScheme.primary,
+                                                )
+                                            }
+                                            Text(
+                                                "Your data has been securely saved and sent to the research team. You don't need to do anything else until your next scheduled check-in next week.",
+                                                style = MaterialTheme.typography.bodyLarge,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                lineHeight = 24.sp,
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    StepIndicator(current = 4, total = 4)
+                }
+            }
+
+            WorkflowStep.ERROR -> {
+                Card(
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .padding(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(24.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                    ) {
+                        Text("Something went wrong", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
+                        Text(status, style = MaterialTheme.typography.bodyLarge)
+                        Button(
+                            onClick = {
+                                onSendSupportEmail(
+                                    "Open Movement Tablet support request",
+                                    supportEmailBody ?: status,
+                                )
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(56.dp),
+                        ) {
+                            Text("Send support email")
+                        }
+                        TextButton(onClick = onDismissError) {
+                            Text("Go back")
                         }
                     }
                 }
             }
         }
     }
+
 }
 
 @Composable
@@ -268,10 +860,29 @@ private fun DeviceField(label: String, value: String) {
 }
 
 @Composable
+private fun StepIndicator(current: Int, total: Int) {
+    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+        for (index in 1..total) {
+            val isActive = index == current
+            Card(
+                colors = CardDefaults.cardColors(
+                    containerColor = if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
+                ),
+            ) {
+                Spacer(
+                    modifier = Modifier
+                        .width(if (isActive) 28.dp else 10.dp)
+                        .height(8.dp),
+                )
+            }
+        }
+    }
+}
+
+@Composable
 private fun FilesScreen(
     files: List<AppFile>,
     onRefresh: () -> Unit,
-    onExport: (AppFile, ExportType) -> Unit,
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
         Row(
@@ -318,18 +929,93 @@ private fun FilesScreen(
                                 Text(summary, style = MaterialTheme.typography.bodyMedium)
                             }
                         }
-                        if (file.kind == AppFileKind.RAW_CWA) {
-                            Row(
-                                modifier = Modifier.horizontalScroll(rememberScrollState()),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            ) {
-                                Button(onClick = { onExport(file, ExportType.WAV) }) { Text("WAV") }
-                                Button(onClick = { onExport(file, ExportType.CSV) }) { Text("CSV") }
-                                Button(onClick = { onExport(file, ExportType.SVM) }) { Text("SVM") }
-                                Button(onClick = { onExport(file, ExportType.WTV) }) { Text("WTV") }
-                                Button(onClick = { onExport(file, ExportType.CUT) }) { Text("CUT") }
-                                Button(onClick = { onExport(file, ExportType.SLEEP) }) { Text("Sleep") }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DiagnoseScreen(
+    devices: List<Ax3DeviceSnapshot>,
+    onGrantUsb: (String) -> Unit,
+    onDiagnose: (String) -> Unit,
+    onDownload: (String) -> Unit,
+    onClear: (String) -> Unit,
+    onReset: (String, Long) -> Unit,
+    onStopRecording: (String) -> Unit,
+) {
+    if (devices.isEmpty()) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Text("Please connect your AX3 device to view details.")
+        }
+        return
+    }
+
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
+    ) {
+        items(devices, key = { it.usbKey }) { device ->
+            Card {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text(device.displayName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    DeviceField("Device ID", device.deviceId?.let { "%05d".format(it) } ?: "Unknown")
+                    DeviceField("Session", device.sessionId?.let { "%010d".format(it) } ?: "-")
+                    DeviceField("Firmware", device.firmwareVersion?.toString() ?: "-")
+                    DeviceField("Memory Health", device.memoryHealth?.toString() ?: "-")
+                    DeviceField("Battery", device.batteryLevel?.let { "$it%" } ?: "-")
+                    DeviceField("Rate", device.sampleRateHz?.let { "$it Hz" } ?: "-")
+                    DeviceField("Range", device.accelRangeG?.let { "±${it}g" } ?: "-")
+                    device.startTime?.let { DeviceField("Start", it.toString().replace('T', ' ')) }
+                    device.stopTime?.let { DeviceField("Stop", it.toString().replace('T', ' ')) }
+                    if (!device.warning.isNullOrBlank()) {
+                        Text(device.warning, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
+                    }
+                    if (!device.hasPermission) {
+                        Button(onClick = { onGrantUsb(device.usbKey) }) {
+                            Text("Allow USB access")
+                        }
+                    } else {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Button(onClick = { onDiagnose(device.usbKey) }, enabled = !device.isDownloading) {
+                                Text("Run Device Check")
                             }
+                            OutlinedButton(onClick = { onDownload(device.usbKey) }, enabled = !device.isDownloading) {
+                                Text("Download")
+                            }
+                            OutlinedButton(onClick = { onClear(device.usbKey) }, enabled = !device.isDownloading) {
+                                Text("Clear")
+                            }
+                            OutlinedButton(
+                                onClick = {
+                                    val resetSessionId = when {
+                                        (device.sessionId ?: 0L) > 0L -> device.sessionId!!
+                                        (device.deviceId ?: 0L) > 0L -> device.deviceId!!
+                                        else -> 1L
+                                    }
+                                    onReset(device.usbKey, resetSessionId)
+                                },
+                                enabled = !device.isDownloading,
+                            ) {
+                                Text("Reset")
+                            }
+                        }
+                        OutlinedButton(
+                            onClick = { onStopRecording(device.usbKey) },
+                            enabled = !device.isDownloading,
+                        ) {
+                            Text("Stop Recording")
                         }
                     }
                 }

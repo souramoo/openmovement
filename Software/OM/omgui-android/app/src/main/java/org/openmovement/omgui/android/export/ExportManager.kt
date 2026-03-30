@@ -12,6 +12,7 @@ import org.openmovement.omgui.android.data.ExportRequest
 import org.openmovement.omgui.android.data.ExportStatus
 import org.openmovement.omgui.android.data.ExportType
 import java.io.File
+import java.io.IOException
 import java.util.UUID
 
 class ExportManager(
@@ -52,6 +53,23 @@ class ExportManager(
                 updateJob(jobId) { it.copy(status = ExportStatus.FAILED, message = "omconvert exit code $exitCode") }
             }
             refreshFiles()
+        }
+    }
+
+    suspend fun exportCsv(inputFile: File): File {
+        return withContext(Dispatchers.IO) {
+            val request = ExportRequest(inputFile = inputFile, type = ExportType.CSV)
+            val settings = settingsStore.load()
+            val outputFile = uniqueOutput(settings.exportsRoot, request)
+            if (outputFile.exists()) {
+                outputFile.delete()
+            }
+            val exitCode = OmConvertNative.runOmconvert(buildArgs(request, outputFile))
+            if (exitCode != 0) {
+                throw IOException("CSV export failed: omconvert exit code $exitCode")
+            }
+            refreshFiles()
+            outputFile
         }
     }
 
