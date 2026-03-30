@@ -5,3 +5,9 @@ local.properties
 captures/
 *.iml
 
+# Android/NDK generated artifacts
+app/.cxx/
+app/.externalNativeBuild/
+.kotlin/
+stitch_exports/
+
