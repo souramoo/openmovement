@@ -61,6 +61,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -310,15 +311,19 @@ private fun DevicesScreen(
                         verticalArrangement = Arrangement.spacedBy(if (isLandscape) 6.dp else 8.dp),
                     ) {
                         Text(
-                            "Step 1 / 4: Connect your sensor",
+                            "Step 1 / 4: Connect Your Sensor",
                             style = MaterialTheme.typography.headlineMedium,
                             fontWeight = FontWeight.ExtraBold,
                             color = MaterialTheme.colorScheme.primary,
                         )
                         Text(
-                            "Use the cable to plug your sensor into the tablet.",
+                            "Use the USB cable to plug your AX3 sensor into the tablet. You may need a USB-C adapter.",
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = if (isLandscape) 28.dp else 20.dp, vertical = 6.dp),
                             style = MaterialTheme.typography.titleMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center,
                         )
 
                         Card(
@@ -366,14 +371,14 @@ private fun DevicesScreen(
                                                         contentDescription = "AX3 Sensor",
                                                         modifier = Modifier
                                                             .fillMaxSize()
-                                                            .padding(6.dp),
+                                                            .padding(if (isLandscape) 28.dp else 34.dp),
                                                         contentScale = ContentScale.Fit,
                                                     )
                                                 }
                                             }
                                             Text(
                                                 "AX3 Sensor",
-                                                style = if (isLandscape) MaterialTheme.typography.labelMedium else MaterialTheme.typography.bodyMedium,
+                                                style = if (isLandscape) MaterialTheme.typography.titleMedium else MaterialTheme.typography.titleLarge,
                                                 fontWeight = FontWeight.Bold,
                                             )
                                         }
@@ -404,14 +409,14 @@ private fun DevicesScreen(
                                                         contentDescription = "USB Cable",
                                                         modifier = Modifier
                                                             .fillMaxSize()
-                                                            .padding(6.dp),
+                                                            .padding(if (isLandscape) 28.dp else 34.dp),
                                                         contentScale = ContentScale.Fit,
                                                     )
                                                 }
                                             }
                                             Text(
                                                 "USB Cable",
-                                                style = if (isLandscape) MaterialTheme.typography.labelMedium else MaterialTheme.typography.bodyMedium,
+                                                style = if (isLandscape) MaterialTheme.typography.titleMedium else MaterialTheme.typography.titleLarge,
                                                 fontWeight = FontWeight.Bold,
                                             )
                                         }
@@ -426,13 +431,14 @@ private fun DevicesScreen(
                                     Row(
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .padding(horizontal = 16.dp, vertical = if (isLandscape) 8.dp else 10.dp),
+                                            .heightIn(min = if (isLandscape) 76.dp else 92.dp)
+                                            .padding(horizontal = 24.dp, vertical = if (isLandscape) 12.dp else 16.dp),
                                         horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
                                         verticalAlignment = Alignment.CenterVertically,
                                     ) {
                                         Box(
                                             modifier = Modifier
-                                                .size(if (isLandscape) 7.dp else 8.dp)
+                                                .size(if (isLandscape) 12.dp else 14.dp)
                                                 .background(
                                                     color = MaterialTheme.colorScheme.secondary,
                                                     shape = androidx.compose.foundation.shape.CircleShape,
@@ -440,7 +446,13 @@ private fun DevicesScreen(
                                         )
                                         Text(
                                             if (activeDevice == null) "Waiting for connection..." else "Sensor connected. USB permission required.",
-                                            style = if (isLandscape) MaterialTheme.typography.bodySmall else MaterialTheme.typography.bodyMedium,
+                                            style = when {
+                                                activeDevice == null && isLandscape -> MaterialTheme.typography.headlineLarge
+                                                activeDevice == null -> MaterialTheme.typography.displaySmall
+                                                isLandscape -> MaterialTheme.typography.titleLarge
+                                                else -> MaterialTheme.typography.headlineSmall
+                                            },
+                                            fontWeight = if (activeDevice == null) FontWeight.ExtraBold else FontWeight.SemiBold,
                                             color = MaterialTheme.colorScheme.secondary,
                                         )
                                     }
@@ -468,7 +480,7 @@ private fun DevicesScreen(
                 val device = activeDevice ?: return@Box
                 Column(
                     modifier = Modifier
-                        .fillMaxWidth()
+                        .fillMaxSize()
                         .padding(horizontal = 24.dp, vertical = 20.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(18.dp),
@@ -476,15 +488,16 @@ private fun DevicesScreen(
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .widthIn(max = 860.dp),
+                            .widthIn(max = 860.dp)
+                            .weight(1f),
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
                     ) {
                         Column(
                             modifier = Modifier
-                                .fillMaxWidth()
+                                .fillMaxSize()
                                 .padding(20.dp),
                             horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(16.dp),
+                            verticalArrangement = Arrangement.SpaceEvenly,
                         ) {
                             Card(
                                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest),
@@ -504,13 +517,12 @@ private fun DevicesScreen(
                                 }
                             }
 
-                            Text("Download", style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary)
+                            Text("Step 2 / 4: Download", style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary)
                             Text(
                                 "Your data is ready to be saved to this tablet.",
                                 style = MaterialTheme.typography.headlineSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
-                            Text("Step 2 / 4", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
 
                             Button(
                                 onClick = { onDownloadAndExportCsv(device.usbKey) },
@@ -538,7 +550,7 @@ private fun DevicesScreen(
                 val device = activeDevice ?: return@Box
                 Column(
                     modifier = Modifier
-                        .fillMaxWidth()
+                        .fillMaxSize()
                         .padding(horizontal = 24.dp, vertical = 20.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(18.dp),
@@ -546,15 +558,16 @@ private fun DevicesScreen(
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .widthIn(max = 860.dp),
+                            .widthIn(max = 860.dp)
+                            .weight(1f),
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
                     ) {
                         Column(
                             modifier = Modifier
-                                .fillMaxWidth()
+                                .fillMaxSize()
                                 .padding(20.dp),
                             horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(16.dp),
+                            verticalArrangement = Arrangement.SpaceEvenly,
                         ) {
                             Card(
                                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest),
@@ -574,14 +587,12 @@ private fun DevicesScreen(
                                 }
                             }
 
-                            Text("Reset", style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary)
+                            Text("Step 3 / 4: Reset", style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary)
                             Text(
-                                "This will clear the sensor for the next use. Please ensure you have downloaded your data first.",
+                                "Resetting makes the sensor ready for a fresh recording.",
                                 style = MaterialTheme.typography.headlineSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
-                            Text("Step 3 / 4", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-
                             Button(
                                 onClick = {
                                     val resetSessionId = when {
@@ -598,36 +609,6 @@ private fun DevicesScreen(
                             ) {
                                 Text("RESET SENSOR", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                             }
-
-                            Card(
-                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .border(
-                                        width = 2.dp,
-                                        color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.3f),
-                                        shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
-                                    ),
-                            ) {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(14.dp),
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Outlined.Info,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.secondary,
-                                    )
-                                    Text(
-                                        "Resetting makes the sensor ready for a fresh recording. It ensures your next session starts with a clean slate.",
-                                        style = MaterialTheme.typography.bodyLarge,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                }
-                            }
                         }
                     }
 
@@ -639,14 +620,14 @@ private fun DevicesScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(horizontal = 12.dp, vertical = 20.dp),
+                        .padding(horizontal = 16.dp, vertical = 20.dp),
                     verticalArrangement = Arrangement.SpaceBetween,
                 ) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .weight(1f),
-                        horizontalArrangement = Arrangement.spacedBy(24.dp),
+                        horizontalArrangement = Arrangement.spacedBy(28.dp),
                         verticalAlignment = Alignment.Top,
                     ) {
                         // LEFT COLUMN: Badge + Hero Text
@@ -664,20 +645,20 @@ private fun DevicesScreen(
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .padding(horizontal = 16.dp, vertical = 10.dp),
+                                        .padding(horizontal = 20.dp, vertical = 14.dp),
                                     horizontalArrangement = Arrangement.Center,
                                     verticalAlignment = Alignment.CenterVertically,
                                 ) {
                                     Icon(
                                         imageVector = Icons.Outlined.CheckCircle,
                                         contentDescription = null,
-                                        modifier = Modifier.size(20.dp),
+                                        modifier = Modifier.size(26.dp),
                                         tint = MaterialTheme.colorScheme.onSecondaryContainer,
                                     )
-                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Spacer(modifier = Modifier.width(10.dp))
                                     Text(
                                         "MISSION ACCOMPLISHED",
-                                        style = MaterialTheme.typography.labelMedium,
+                                        style = MaterialTheme.typography.titleMedium,
                                         fontWeight = FontWeight.Bold,
                                         color = MaterialTheme.colorScheme.onSecondaryContainer,
                                     )
@@ -685,18 +666,27 @@ private fun DevicesScreen(
                             }
 
                             // Hero Text: "Well done!" + "You are all finished for today."
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Column(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                            ) {
                                 Text(
                                     "Well done!",
-                                    style = MaterialTheme.typography.displayMedium,
+                                    modifier = Modifier.fillMaxWidth(),
+                                    style = MaterialTheme.typography.displayLarge,
                                     fontWeight = FontWeight.ExtraBold,
                                     color = MaterialTheme.colorScheme.primary,
+                                    textAlign = TextAlign.Center,
                                 )
                                 Text(
                                     "You are all finished for today.",
-                                    style = MaterialTheme.typography.displaySmall,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(top = 4.dp),
+                                    style = MaterialTheme.typography.headlineLarge,
                                     fontWeight = FontWeight.ExtraBold,
                                     color = MaterialTheme.colorScheme.secondary,
+                                    textAlign = TextAlign.Center,
                                 )
                             }
                         }
@@ -711,18 +701,20 @@ private fun DevicesScreen(
                             // Main Content Card: Unplug Instructions
                             Card(
                                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest),
-                                modifier = Modifier.fillMaxWidth(),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .weight(1f),
                             ) {
                                 Column(
                                     modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(24.dp),
-                                    verticalArrangement = Arrangement.spacedBy(20.dp),
+                                        .fillMaxSize()
+                                        .padding(28.dp),
+                                    verticalArrangement = Arrangement.spacedBy(24.dp),
                                 ) {
                                     // Unplug instruction
                                     Text(
                                         "You can now safely unplug the sensor.",
-                                        style = MaterialTheme.typography.headlineSmall,
+                                        style = MaterialTheme.typography.headlineMedium,
                                         fontWeight = FontWeight.Bold,
                                         color = MaterialTheme.colorScheme.onSurface,
                                     )
@@ -735,14 +727,14 @@ private fun DevicesScreen(
                                         Row(
                                             modifier = Modifier
                                                 .fillMaxWidth()
-                                                .padding(16.dp),
+                                                .padding(20.dp),
                                             horizontalArrangement = Arrangement.spacedBy(12.dp),
                                             verticalAlignment = Alignment.CenterVertically,
                                         ) {
                                             // Blinking green dot
                                             Box(
                                                 modifier = Modifier
-                                                    .size(20.dp)
+                                                    .size(24.dp)
                                                     .background(
                                                         color = Color(0xFF22C55E),
                                                         shape = androidx.compose.foundation.shape.CircleShape,
@@ -754,8 +746,8 @@ private fun DevicesScreen(
                                                     ),
                                             )
                                             Text(
-                                                "It should be blinking green to show it is ready to rest.",
-                                                style = MaterialTheme.typography.bodyLarge,
+                                                "It should be blinking green to show it is recording.",
+                                                style = MaterialTheme.typography.titleMedium,
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                             )
                                         }
@@ -775,31 +767,31 @@ private fun DevicesScreen(
                                         Column(
                                             modifier = Modifier
                                                 .fillMaxWidth()
-                                                .padding(16.dp),
-                                            verticalArrangement = Arrangement.spacedBy(12.dp),
+                                                .padding(20.dp),
+                                            verticalArrangement = Arrangement.spacedBy(14.dp),
                                         ) {
                                             Row(
-                                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                                horizontalArrangement = Arrangement.spacedBy(10.dp),
                                                 verticalAlignment = Alignment.CenterVertically,
                                             ) {
                                                 Icon(
                                                     imageVector = Icons.Outlined.Info,
                                                     contentDescription = null,
-                                                    modifier = Modifier.size(24.dp),
+                                                    modifier = Modifier.size(28.dp),
                                                     tint = MaterialTheme.colorScheme.primary,
                                                 )
                                                 Text(
                                                     "What happens next?",
-                                                    style = MaterialTheme.typography.titleMedium,
+                                                    style = MaterialTheme.typography.titleLarge,
                                                     fontWeight = FontWeight.Bold,
                                                     color = MaterialTheme.colorScheme.primary,
                                                 )
                                             }
                                             Text(
                                                 "Your data has been securely saved and sent to the research team. You don't need to do anything else until your next scheduled check-in next week.",
-                                                style = MaterialTheme.typography.bodyLarge,
+                                                style = MaterialTheme.typography.titleMedium,
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                lineHeight = 24.sp,
+                                                lineHeight = 30.sp,
                                             )
                                         }
                                     }

@@ -227,7 +227,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         repository.reportStatus("Reset requested (#$requestId). Applying preset...")
         viewModelScope.launch {
             try {
-                runBusy("Resetting device") {
+                runBusy("Resetting device - this may take a while") {
                     repository.resetToPreset(
                         usbKey = usbKey,
                         sessionId = sessionId,
